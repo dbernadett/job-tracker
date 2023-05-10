@@ -8,7 +8,5 @@ you will also need to download the chrome driver from:
 
 https://chromedriver.chromium.org/downloads
 
-on MacOS you will need to run 
+on MacOS you will need to run
 `xattr -d com.apple.quarantine chromedriver` to allow the driver to be executed.
-
-
