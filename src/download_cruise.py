@@ -9,10 +9,8 @@ class CruiseDownloader:
     def __init__(
         self,
         archive_path,
-        chrome_driver_path="/Users/dbernadett/chromedriver_mac_arm64/chromedriver",
     ):
         self.archive_path = archive_path
-        self.chrome_driver_path = chrome_driver_path
 
     def _parse_bshtml(self, bs_html):
         parsed_fields = {}
@@ -28,12 +26,8 @@ class CruiseDownloader:
             page = BeautifulSoup(html, features="html.parser")
         else:
             options = Options()
-            # options.headless = True
             options.add_argument("--headless")
-
-            # create a service object to start the chromedriver service
-            service = webdriver.chrome.service.Service(self.chrome_driver_path)
-            driver = webdriver.Chrome(service=service, options=options)
+            driver = webdriver.Chrome(options=options)
             driver.get(url)
             page = BeautifulSoup(
                 driver.page_source, features="html.parser"

@@ -2,3 +2,4 @@ requests
 selenium
 bs4
 pytest
+python-dotenv

@@ -19,7 +19,7 @@ class TestDownloadZoox:
         assert True
 
     @pytest.mark.networked
-    def test_download_bshtml_zoox(self, zoox_bs, tmp_path):
+    def test_download_bshtml_zoox(self, tmp_path):
         downloader = ZooxDownloader(archive_path=tmp_path)
         parsed_fields = downloader.download_and_parse(
             "https://zoox.com/careers/job-opportunity/?job=acaafc9a-486d-4045-80d7-12b09e39330e",

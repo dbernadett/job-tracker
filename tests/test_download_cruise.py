@@ -25,10 +25,14 @@ class TestDownloadCruise:
         assert True
 
     @pytest.mark.networked
-    def test_download_bshtml_cruise(self, cruise_html, tmp_path):
+    def test_download_bshtml_cruise(self, tmp_path):
+        cruise_path = os.path.join(tmp_path, "cruise")
+        if os.path.exists(cruise_path):
+            os.rmdir(cruise_path)
+        os.mkdir(cruise_path)
         downloader = CruiseDownloader(archive_path=tmp_path)
         parsed_fields = downloader.download_and_parse(
-            "https://getcruise.com/careers/jobs/2449571/", 1, tmp_path, False
+            "https://getcruise.com/careers/jobs/2449571/", 1, cruise_path, False
         )
         assert parsed_fields["company"] == "cruise"
         assert (
