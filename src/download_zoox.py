@@ -1,8 +1,21 @@
+import logging
 import os
 
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+
+# Create a logger
+logger = logging.getLogger(__name__)
+# Set the logging level to INFO
+logger.setLevel(logging.INFO)
+# Create a console handler
+handler = logging.StreamHandler()
+# Set the logging format
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+# Add the handler to the logger
+logger.addHandler(handler)
 
 
 class ZooxDownloader:
@@ -21,10 +34,12 @@ class ZooxDownloader:
     def _get_bshtml(self, url, id, archive_path, redownload):
         in_cache = f"{id}.html" in os.listdir(archive_path)
         if in_cache and not redownload:
+            logger.info(f"Cache Hit on {id}, using local file")
             with open(os.path.join(archive_path, f"{id}.html"), "r") as file:
                 html = file.read()
             page = BeautifulSoup(html, features="html.parser")
         else:
+            logger.info(f"Downloading {id} from {url}")
             options = Options()
             options.add_argument("--headless")
             driver = webdriver.Chrome(options=options)
