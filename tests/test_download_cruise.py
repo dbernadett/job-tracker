@@ -1,10 +1,16 @@
 import os
 import sys
 
+import pytest
+
 path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, path)
 
 from src.download_cruise import CruiseDownloader  # noqa: E402
+
+# @pytest.fixture
+# def tmp_path():
+#     return os.path.join(os.path.dirname(__file__), "tmp")
 
 
 class TestDownloadCruise:
@@ -17,3 +23,14 @@ class TestDownloadCruise:
             parsed_fields["title"] == "Senior Systems Engineer, Data Logging & Offload"
         )
         assert True
+
+    @pytest.mark.networked
+    def test_download_bshtml_cruise(self, cruise_html, tmp_path):
+        downloader = CruiseDownloader(archive_path=tmp_path)
+        parsed_fields = downloader.download_and_parse(
+            "https://getcruise.com/careers/jobs/2449571/", 1, tmp_path, False
+        )
+        assert parsed_fields["company"] == "cruise"
+        assert (
+            parsed_fields["title"] == "Senior Systems Engineer, Data Logging & Offload"
+        )

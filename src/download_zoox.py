@@ -28,27 +28,29 @@ class ZooxDownloader:
             page = BeautifulSoup(html, features="html.parser")
         else:
             options = Options()
-            options.headless = True
-            driver = webdriver.Chrome(self.chrome_driver_path, options=options)
-            # driver = webdriver.PhantomJS() #selenium for PhantomJS
+            options.add_argument("--headless")
+            service = webdriver.chrome.service.Service(self.chrome_driver_path)
+            driver = webdriver.Chrome(service=service, options=options)
             driver.get(url)
             page = BeautifulSoup(
                 driver.page_source, features="html.parser"
             )  # fetch HTML source code after rendering
-            for script in page("script"):
-                script.extract()
-            # remove all image tags
-            for img in page("img"):
-                img.extract()
 
-            for img in page("style"):
-                img.extract()
-
-            for img in page("link"):
-                img.extract()
-
-            for img in page("svg"):
-                img.extract()
+            tags_to_remove = [
+                "script",
+                "img",
+                "style",
+                "link",
+                "svg",
+                "meta",
+                "iframe",
+                "button",
+                "input",
+                "label",
+            ]
+            for tag in tags_to_remove:
+                for e in page(tag):
+                    e.extract()
 
             html = page.prettify()
             with open(f"{os.path.join(archive_path,str(id))}.html", "w") as file:
