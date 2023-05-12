@@ -34,6 +34,13 @@ add_parser.add_argument("url")
 open_parser = subparsers.add_parser("open")
 open_parser.add_argument("id")
 
+# open command
+mark_applied_parser = subparsers.add_parser("mark_applied")
+mark_applied_parser.add_argument("id")
+mark_applied_parser.add_argument(
+    "--resume_used", help="Resume used for this application"
+)
+
 # list command
 list_parser = subparsers.add_parser("list")
 
@@ -78,10 +85,17 @@ def get_db_archive_or_fail(workspace):
     # Create a connection to the database
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    text_fields = ["title", "company", "date_posted", "date_applied", "url"]
+    text_fields = [
+        "title",
+        "company",
+        "date_posted",
+        "date_applied",
+        "url",
+        "resume_used",
+    ]
     create_table_query = f"CREATE TABLE IF NOT EXISTS {TABLE_NAME} (id INTEGER, {', '.join([f'{field} TEXT' for field in text_fields])}, PRIMARY KEY (id AUTOINCREMENT), UNIQUE (url))"
     cursor.execute(create_table_query)
-    return cursor, archive_path
+    return cursor, archive_path, conn
 
 
 def is_url_present(cursor, url):
@@ -104,12 +118,13 @@ def init(**kwargs):
     else:
         with open(init_file, "w") as f:
             f.write("version=1.0")
+        os.mkdir(get_archive_path(workspace))
         logger.info(f"Initialized job_search repo in {workspace}")
 
 
 def add(url, redownload, reparse, **kwargs):
     supported_domains = {"zoox.com": ZooxDownloader, "getcruise.com": CruiseDownloader}
-    cursor, archive = get_db_archive_or_fail(kwargs["dir"])
+    cursor, archive, conn = get_db_archive_or_fail(kwargs["dir"])
     url = urlparse(url)
     if url.hostname not in supported_domains:
         logger.warning(
@@ -125,9 +140,9 @@ def add(url, redownload, reparse, **kwargs):
 
     if not is_url_present(cursor, urlunparse(url)):
         # Insert a new record into the table
-        insert_query = f"INSERT INTO {TABLE_NAME} (id, title, company, date_posted, date_applied, url) VALUES (?, ?, ?, ?, ?, ?)"
+        insert_query = f"INSERT INTO {TABLE_NAME} (id, title, company, date_posted, date_applied, url, resume_used) VALUES (?, ?, ?, ?, ?, ?, ?)"
         cursor.execute(
-            insert_query, (None, "", "", str(date.today()), "", urlunparse(url))
+            insert_query, (None, "", "", str(date.today()), "", urlunparse(url), None)
         )
         logger.info(f"Downloading new record with URL {urlunparse(url)}")
     else:
@@ -165,10 +180,38 @@ def add(url, redownload, reparse, **kwargs):
     update_query = f"UPDATE {TABLE_NAME} SET title = ?, company = ? WHERE id = ?"
     cursor.execute(update_query, (title, company, record_id))
     print(f"add command called with url: {url}")
+    conn.commit()
+    conn.close()
+
+
+def mark_applied(id, **kwargs):
+    cursor, archive, conn = get_db_archive_or_fail(kwargs["dir"])
+    cursor.execute(f"SELECT url FROM {TABLE_NAME} WHERE id = {id}")
+    url = os.path.join(archive, f"{id}.html")
+    if not os.path.exists(url) or not cursor.fetchone():
+        logger.error(f"Could not find job opportunity with id: {id}")
+        exit(1)
+
+    # Make sure the date_applied field is empty
+    cursor.execute(f"SELECT date_applied FROM {TABLE_NAME} WHERE id = {id}")
+    date_applied = cursor.fetchone()[0]
+    if date_applied:
+        logger.error(f"Job opportunity with id {id} has already been marked applied")
+        exit(1)
+
+    update_query = f"UPDATE {TABLE_NAME} SET date_applied = ? WHERE id = ?"
+    cursor.execute(update_query, (str(date.today()), id))
+    print(f"mark_applied command called with id: {id}")
+    if "resume_used" in kwargs:
+        resume_used = kwargs["resume_used"]
+        update_query = f"UPDATE {TABLE_NAME} SET resume_used = ? WHERE id = ?"
+        cursor.execute(update_query, (resume_used, id))
+    conn.commit()
+    conn.close()
 
 
 def open_cmd(id, **kwargs):
-    cursor, archive = get_db_archive_or_fail(kwargs["dir"])
+    cursor, archive, conn = get_db_archive_or_fail(kwargs["dir"])
     # Check to make sure id exists in both the database and the archive
     cursor.execute(f"SELECT url FROM {TABLE_NAME} WHERE id = {id}")
     url = os.path.join(archive, f"{id}.html")
@@ -177,10 +220,12 @@ def open_cmd(id, **kwargs):
         exit(1)
     os.system(f"open {url}")
     print(f"open command called with id: {id}")
+    conn.commit()
+    conn.close()
 
 
 def list(**kwargs):
-    cursor, _ = get_db_archive_or_fail(kwargs["dir"])
+    cursor, _, conn = get_db_archive_or_fail(kwargs["dir"])
     # Print all records in the table
     cursor.execute(f"SELECT * FROM {TABLE_NAME}")
     rows = cursor.fetchall()
@@ -191,10 +236,12 @@ def list(**kwargs):
     for row in rows:
         writer.writerow(row)
         # pretty print results as a csv
+    conn.commit()
+    conn.close()
 
 
 def stats(**kwargs):
-    cursor, _ = get_db_archive_or_fail(kwargs["dir"])
+    cursor, _, conn = get_db_archive_or_fail(kwargs["dir"])
     # Print the number of records in the table
     cursor.execute(f"SELECT COUNT(*) FROM {TABLE_NAME}")
     print(f"Number of saved postings: {cursor.fetchone()[0]}")
@@ -209,6 +256,7 @@ commands = {
     None: lambda **kwargs: parser.print_help(),
     "init": init,
     "add": add,
+    "mark_applied": mark_applied,
     "open": open_cmd,
     "list": list,
     "stats": stats,
